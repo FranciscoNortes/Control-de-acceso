@@ -1,0 +1,19 @@
+services:
+  sala-control:
+    build: .
+    container_name: sala-control
+    restart: unless-stopped
+    ports:
+      - "7000:7000"
+    environment:
+      - PORT=7000
+      - JWT_SECRET=${JWT_SECRET:-cambiar_por_una_clave_secreta_muy_segura}
+      - ROOM_NAME=${ROOM_NAME:-Sala Principal}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - sala-network
+
+networks:
+  sala-network:
+    driver: bridge

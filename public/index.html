@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estado de la Sala</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px 20px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: clamp(0.85rem, 3vw, 0.9rem);
+      line-height: 1.5;
+      padding: 0 10px;
+    }
+
+    .status-card {
+      padding: clamp(20px, 5vw, 30px);
+      border-radius: 15px;
+      margin: 20px 0;
+      transition: all 0.3s ease;
+    }
+
+    .status-card.available {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      color: white;
+    }
+
+    .status-card.occupied {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      color: white;
+    }
+
+    .status-icon {
+      font-size: clamp(3em, 10vw, 4em);
+      margin-bottom: 15px;
+    }
+
+    .status-text {
+      font-size: clamp(1.3em, 5vw, 1.8em);
+      font-weight: bold;
+      margin-bottom: 10px;
+      line-height: 1.2;
+    }
+
+    .occupied-info {
+      font-size: clamp(0.95em, 3vw, 1.1em);
+      margin-top: 15px;
+      opacity: 0.95;
+    }
+
+    .occupied-by {
+      font-weight: bold;
+      font-size: clamp(1.1em, 4vw, 1.3em);
+      margin: 10px 0;
+      word-wrap: break-word;
+    }
+
+    .time-info {
+      font-size: clamp(0.85em, 2.5vw, 0.9em);
+      opacity: 0.85;
+      margin-top: 10px;
+    }
+
+    .admin-link {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+
+    .admin-link p {
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+    }
+
+    .admin-link a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s ease;
+      display: inline-block;
+      padding: 5px 0;
+    }
+
+    .admin-link a:hover {
+      color: #764ba2;
+    }
+
+    .last-update {
+      color: #999;
+      font-size: clamp(0.75em, 2.5vw, 0.85em);
+      margin-top: 20px;
+    }
+
+    .loading {
+      color: #666;
+      font-size: clamp(1em, 3vw, 1.2em);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 25px 15px;
+        border-radius: 15px;
+      }
+
+      .status-card {
+        margin: 15px 0;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .container {
+        padding: 40px;
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .loading {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 id="roomName">Estado de la Sala</h1>
+    <p class="subtitle">Verifica si algún administrador está dentro para poder acceder</p>
+
+    <div id="statusContainer" class="loading">
+      Cargando...
+    </div>
+
+    <div class="last-update" id="lastUpdate"></div>
+
+    <div class="admin-link">
+      <p>¿Eres administrador? <a href="/admin">Acceder al panel</a></p>
+    </div>
+  </div>
+
+  <script>
+    let updateInterval;
+
+    async function fetchStatus() {
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        updateUI(data);
+        updateLastUpdateTime();
+      } catch (error) {
+        console.error('Error al obtener estado:', error);
+        document.getElementById('statusContainer').innerHTML = 
+          '<div class="status-card" style="background: #f5f5f5; color: #666;">❌<br>Error al conectar con el servidor</div>';
+      }
+    }
+
+    function updateUI(data) {
+      const container = document.getElementById('statusContainer');
+      const roomName = document.getElementById('roomName');
+
+      if (data.roomName) {
+        roomName.textContent = data.roomName;
+      }
+
+      if (data.isOccupied) {
+        const timeAgo = data.occupiedSince ? formatTimeAgo(new Date(data.occupiedSince)) : '';
+        
+        container.innerHTML = `
+          <div class="status-card available">
+            <div class="status-icon">✅</div>
+            <div class="status-text">PUEDES ACCEDER</div>
+            <div class="occupied-info">
+              <div class="occupied-by">👤 ${data.occupiedBy || 'Administrador'} está dentro</div>
+              ${timeAgo ? `<div class="time-info">Desde hace ${timeAgo}</div>` : ''}
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="status-card occupied">
+            <div class="status-icon">🔴</div>
+            <div class="status-text">NO DISPONIBLE</div>
+            <div class="occupied-info">Ningún administrador ha accedido aún</div>
+          </div>
+        `;
+      }
+    }
+
+    function formatTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      
+      if (seconds < 60) return `${seconds} segundos`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)} minutos`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)} horas`;
+      return `${Math.floor(seconds / 86400)} días`;
+    }
+
+    function updateLastUpdateTime() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('es-ES');
+      document.getElementById('lastUpdate').textContent = `Última actualización: ${timeString}`;
+    }
+
+    // Actualizar cada 5 segundos
+    fetchStatus();
+    updateInterval = setInterval(fetchStatus, 5000);
+  </script>
+</body>
+</html>
