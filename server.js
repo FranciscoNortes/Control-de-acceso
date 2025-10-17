@@ -83,11 +83,16 @@ const authenticate = (req, res, next) => {
 
 // Obtener estado de la sala (público)
 app.get('/api/status', (req, res) => {
-  const status = db.prepare('SELECT * FROM room_status WHERE id = 1').get();
+  const status = db.prepare(`
+    SELECT *, 
+    strftime('%s', occupied_since) * 1000 as occupied_since_ms 
+    FROM room_status WHERE id = 1
+  `).get();
+  
   res.json({
     isOccupied: Boolean(status.is_occupied),
     occupiedBy: status.occupied_by,
-    occupiedSince: status.occupied_since,
+    occupiedSince: status.occupied_since_ms ? parseInt(status.occupied_since_ms) : null,
     roomName: process.env.ROOM_NAME || 'Sala'
   });
 });
