@@ -10,10 +10,32 @@ Sistema web para gestionar el acceso a una sala compartida. Los administradores 
 ## ✨ Características
 
 - Vista pública con actualización automática (5 segundos)
+- **Sistema de solicitudes de acceso** para usuarios no-admin
 - Panel de administración protegido con login
+- **Revisión múltiple**: todos los admins pueden revisar cada solicitud
 - Gestión de administradores (crear/eliminar)
 - Diseño responsive (móvil, tablet, desktop)
 - Despliegue fácil con Docker
+
+## 📝 Sistema de Solicitudes
+
+### Para Usuarios (Vista Pública)
+1. Hacer clic en "📝 Solicitar Acceso"
+2. Completar formulario con:
+   - Nombre (requerido)
+   - Fecha y hora deseada (requerido)
+   - Email y motivo (opcional)
+3. Recibir número de solicitud para seguimiento
+4. Consultar estado con "🔍 Consultar Estado"
+
+### Para Administradores
+- Ver todas las solicitudes con fecha/hora solicitada
+- Aprobar ✅ o rechazar ❌ individualmente
+- Ver quién ya revisó cada solicitud
+- **Estado final:**
+  - ✅ **Aprobada**: Al menos 1 admin aprobó
+  - ❌ **Rechazada**: TODOS los admins rechazaron
+  - ⏳ **Pendiente**: En revisión
 
 ## 🚀 Inicio Rápido
 
@@ -69,6 +91,24 @@ docker-compose exec sala-control node setup.js
 # Backup
 tar -czf backup-$(date +%Y%m%d).tar.gz data/
 ```
+
+## 🌐 API Endpoints
+
+### Públicos
+- `GET /api/status` - Estado de la sala
+- `POST /api/requests` - Crear solicitud de acceso
+- `GET /api/requests/:id` - Consultar estado de solicitud
+
+### Protegidos (requieren autenticación)
+- `POST /api/login` - Iniciar sesión
+- `POST /api/occupy` - Marcar sala como ocupada
+- `POST /api/release` - Marcar sala como libre
+- `GET /api/requests` - Listar todas las solicitudes
+- `POST /api/requests/:id/review` - Aprobar/rechazar solicitud
+- `DELETE /api/requests/:id` - Eliminar solicitud
+- `GET /api/admins` - Listar administradores
+- `POST /api/admins` - Crear administrador
+- `DELETE /api/admins/:id` - Eliminar administrador
 
 ## 🌐 Acceso Remoto
 

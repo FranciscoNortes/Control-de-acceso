@@ -39,6 +39,26 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS access_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    reason TEXT,
+    requested_date TEXT NOT NULL,
+    requested_time TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS request_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER NOT NULL,
+    admin_username TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    reviewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (request_id) REFERENCES access_requests(id) ON DELETE CASCADE
+  );
+
   INSERT OR IGNORE INTO room_status (id, is_occupied) VALUES (1, 0);
 `);
 
@@ -105,6 +125,67 @@ app.post('/api/login', (req, res) => {
   });
 
   res.json({ success: true, username: admin.username });
+});
+
+// Crear solicitud de acceso (público)
+app.post('/api/requests', (req, res) => {
+  const { name, email, reason, requested_date, requested_time } = req.body;
+
+  if (!name || name.trim().length === 0) {
+    return res.status(400).json({ error: 'El nombre es requerido' });
+  }
+
+  if (name.trim().length < 3) {
+    return res.status(400).json({ error: 'El nombre debe tener al menos 3 caracteres' });
+  }
+
+  if (!requested_date || !requested_time) {
+    return res.status(400).json({ error: 'La fecha y hora son requeridas' });
+  }
+
+  try {
+    const stmt = db.prepare('INSERT INTO access_requests (name, email, reason, requested_date, requested_time) VALUES (?, ?, ?, ?, ?)');
+    const result = stmt.run(name.trim(), email?.trim() || null, reason?.trim() || null, requested_date, requested_time);
+    res.json({ 
+      success: true, 
+      message: 'Solicitud enviada correctamente',
+      requestId: result.lastInsertRowid 
+    });
+  } catch (error) {
+    console.error('Error al crear solicitud:', error);
+    res.status(500).json({ error: 'Error al procesar la solicitud' });
+  }
+});
+
+// Consultar estado de solicitud (público)
+app.get('/api/requests/:id', (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const request = db.prepare('SELECT * FROM access_requests WHERE id = ?').get(id);
+    
+    if (!request) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+
+    const reviews = db.prepare('SELECT * FROM request_reviews WHERE request_id = ? ORDER BY reviewed_at DESC').all(id);
+    
+    const approvals = reviews.filter(r => r.decision === 'approved').length;
+    const rejections = reviews.filter(r => r.decision === 'rejected').length;
+    const totalAdmins = db.prepare('SELECT COUNT(*) as count FROM admins').get().count;
+
+    res.json({
+      ...request,
+      reviews,
+      approvals,
+      rejections,
+      totalAdmins,
+      finalStatus: approvals > 0 ? 'approved' : (rejections === totalAdmins ? 'rejected' : 'pending')
+    });
+  } catch (error) {
+    console.error('Error al consultar solicitud:', error);
+    res.status(500).json({ error: 'Error al consultar la solicitud' });
+  }
 });
 
 // ============ RUTAS PROTEGIDAS ============
@@ -204,6 +285,92 @@ app.delete('/api/admins/:id', authenticate, (req, res) => {
   }
 
   res.json({ success: true, message: 'Administrador eliminado' });
+});
+
+// Obtener solicitudes
+app.get('/api/requests', authenticate, (req, res) => {
+  try {
+    const requests = db.prepare(`
+      SELECT 
+        ar.*,
+        (SELECT COUNT(*) FROM request_reviews WHERE request_id = ar.id AND decision = 'approved') as approvals,
+        (SELECT COUNT(*) FROM request_reviews WHERE request_id = ar.id AND decision = 'rejected') as rejections,
+        (SELECT COUNT(*) FROM admins) as total_admins
+      FROM access_requests ar
+      ORDER BY ar.created_at DESC
+    `).all();
+
+    res.json(requests);
+  } catch (error) {
+    console.error('Error al obtener solicitudes:', error);
+    res.status(500).json({ error: 'Error al obtener solicitudes' });
+  }
+});
+
+// Revisar solicitud (aprobar/rechazar)
+app.post('/api/requests/:id/review', authenticate, (req, res) => {
+  const { id } = req.params;
+  const { decision } = req.body;
+
+  if (!['approved', 'rejected'].includes(decision)) {
+    return res.status(400).json({ error: 'Decisión inválida' });
+  }
+
+  try {
+    // Verificar si el admin ya revisó esta solicitud
+    const existingReview = db.prepare('SELECT * FROM request_reviews WHERE request_id = ? AND admin_username = ?').get(id, req.user.username);
+
+    if (existingReview) {
+      return res.status(400).json({ error: 'Ya has revisado esta solicitud' });
+    }
+
+    // Verificar que la solicitud existe
+    const request = db.prepare('SELECT * FROM access_requests WHERE id = ?').get(id);
+    if (!request) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+
+    // Insertar la revisión
+    const stmt = db.prepare('INSERT INTO request_reviews (request_id, admin_username, decision) VALUES (?, ?, ?)');
+    stmt.run(id, req.user.username, decision);
+
+    // Actualizar el estado de la solicitud si es necesario
+    const reviews = db.prepare('SELECT * FROM request_reviews WHERE request_id = ?').all(id);
+    const approvals = reviews.filter(r => r.decision === 'approved').length;
+    const rejections = reviews.filter(r => r.decision === 'rejected').length;
+    const totalAdmins = db.prepare('SELECT COUNT(*) as count FROM admins').get().count;
+
+    let newStatus = 'pending';
+    if (approvals > 0) {
+      newStatus = 'approved';
+    } else if (rejections === totalAdmins) {
+      newStatus = 'rejected';
+    }
+
+    db.prepare('UPDATE access_requests SET status = ? WHERE id = ?').run(newStatus, id);
+
+    res.json({ 
+      success: true, 
+      message: `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'}`,
+      newStatus
+    });
+  } catch (error) {
+    console.error('Error al revisar solicitud:', error);
+    res.status(500).json({ error: 'Error al procesar la revisión' });
+  }
+});
+
+// Eliminar solicitud
+app.delete('/api/requests/:id', authenticate, (req, res) => {
+  const { id } = req.params;
+  const stmt = db.prepare('DELETE FROM access_requests WHERE id = ?');
+  const result = stmt.run(id);
+
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Solicitud no encontrada' });
+  }
+
+  res.json({ success: true, message: 'Solicitud eliminada' });
 });
 
 // Servir páginas HTML

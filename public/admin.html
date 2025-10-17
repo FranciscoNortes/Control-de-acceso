@@ -210,6 +210,107 @@
       background: #ee5a6f;
     }
 
+    /* Request items */
+    .request-item {
+      background: #f9f9f9;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-left: 4px solid #667eea;
+    }
+
+    .request-item.approved {
+      border-left-color: #00b894;
+      background: #f0fff0;
+    }
+
+    .request-item.rejected {
+      border-left-color: #d63031;
+      background: #fff5f5;
+    }
+
+    .request-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .request-name {
+      font-weight: 600;
+      color: #333;
+      font-size: clamp(1rem, 3vw, 1.1rem);
+    }
+
+    .request-date {
+      color: #999;
+      font-size: clamp(0.8em, 2.5vw, 0.85em);
+    }
+
+    .request-details {
+      margin: 10px 0;
+      color: #666;
+      font-size: clamp(0.9em, 2.5vw, 0.95em);
+    }
+
+    .request-details div {
+      margin: 5px 0;
+    }
+
+    .request-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-approve {
+      background: #00b894;
+      color: white;
+      padding: clamp(6px, 2vw, 8px) clamp(14px, 3vw, 18px);
+      font-size: clamp(0.85em, 2.5vw, 0.9em);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-approve:hover {
+      background: #00d2a0;
+    }
+
+    .btn-reject {
+      background: #ff4757;
+      color: white;
+      padding: clamp(6px, 2vw, 8px) clamp(14px, 3vw, 18px);
+      font-size: clamp(0.85em, 2.5vw, 0.9em);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-reject:hover {
+      background: #ee5a6f;
+    }
+
+    .btn-remove {
+      background: #95a5a6;
+      color: white;
+      padding: clamp(6px, 2vw, 8px) clamp(14px, 3vw, 18px);
+      font-size: clamp(0.85em, 2.5vw, 0.9em);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-remove:hover {
+      background: #7f8c8d;
+    }
+
     /* Messages */
     .message {
       padding: 12px 20px;
@@ -438,6 +539,22 @@
       </div>
     </div>
 
+    <!-- Access Requests -->
+    <div class="card">
+      <h2>Solicitudes de Acceso</h2>
+      
+      <div class="button-group" style="margin-bottom: 20px;">
+        <button class="btn-primary" onclick="loadRequests('all')">📋 Todas</button>
+        <button class="btn-secondary" onclick="loadRequests('pending')">⏳ Pendientes</button>
+        <button class="btn-secondary" onclick="loadRequests('approved')">✅ Aprobadas</button>
+        <button class="btn-secondary" onclick="loadRequests('rejected')">❌ Rechazadas</button>
+      </div>
+      
+      <div class="admin-list" id="requestsList">
+        <p style="color: #999;">Cargando solicitudes...</p>
+      </div>
+    </div>
+
     <!-- Admin Management -->
     <div class="card">
       <h2>Gestión de Administradores</h2>
@@ -506,6 +623,7 @@
       document.getElementById('adminUsername').textContent = currentUser;
       loadStatus();
       loadAdmins();
+      loadRequests('pending');
     }
 
     // Login
@@ -603,6 +721,146 @@
         }
       } catch (error) {
         showMessage('adminMessage', 'Error de conexión', 'error');
+      }
+    }
+
+    // Load Requests
+    async function loadRequests(filterStatus = 'all') {
+      try {
+        const response = await fetch('/api/requests');
+        let requests = await response.json();
+        
+        // Filter by status
+        if (filterStatus !== 'all') {
+          requests = requests.filter(req => req.status === filterStatus);
+        }
+        
+        const list = document.getElementById('requestsList');
+        
+        if (requests.length === 0) {
+          list.innerHTML = `<p style="color: #999;">No hay solicitudes ${
+            filterStatus === 'pending' ? 'pendientes' : 
+            filterStatus === 'approved' ? 'aprobadas' : 
+            filterStatus === 'rejected' ? 'rechazadas' : ''
+          }</p>`;
+          return;
+        }
+        
+        list.innerHTML = requests.map(req => {
+          const statusClass = req.status === 'approved' ? 'approved' : req.status === 'rejected' ? 'rejected' : '';
+          const date = new Date(req.created_at).toLocaleString('es-ES');
+          const statusText = req.status === 'approved' ? '✅ APROBADA' : 
+                            req.status === 'rejected' ? '❌ RECHAZADA' : 
+                            '⏳ PENDIENTE';
+          const statusColor = req.status === 'approved' ? '#27ae60' : 
+                             req.status === 'rejected' ? '#e74c3c' : '#f39c12';
+          
+          return `
+            <div class="request-item ${statusClass}">
+              <div class="request-header">
+                <div>
+                  <div class="request-name">👤 ${req.name}</div>
+                  <div class="request-date">📅 ${req.requested_date} ⏰ ${req.requested_time}</div>
+                  <div class="request-date" style="font-size: 0.85em; opacity: 0.7;">Creada: ${date}</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="color: ${statusColor}; font-weight: bold; font-size: 0.9em;">${statusText}</div>
+                  <div style="font-size: 0.85em; margin-top: 3px;">
+                    ${req.approvals} ✅ / ${req.rejections} ❌ de ${req.total_admins}
+                  </div>
+                </div>
+              </div>
+              <div class="request-details">
+                ${req.email ? `<div>� ${req.email}</div>` : ''}
+                ${req.reason ? `<div>💬 ${req.reason}</div>` : ''}
+              </div>
+              <div class="request-actions" id="actions-${req.id}">
+                <button class="btn-approve" onclick="reviewRequest(${req.id}, 'approved')">✅ Aprobar</button>
+                <button class="btn-reject" onclick="reviewRequest(${req.id}, 'rejected')">❌ Rechazar</button>
+                <button class="btn-remove" onclick="deleteRequest(${req.id})">🗑️ Eliminar</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+        // Load reviews for each request
+        requests.forEach(req => loadReviews(req.id));
+      } catch (error) {
+        console.error('Error al cargar solicitudes:', error);
+      }
+    }
+
+    // Load reviews for a specific request
+    async function loadReviews(requestId) {
+      try {
+        const response = await fetch(`/api/requests/${requestId}`);
+        const data = await response.json();
+        
+        if (data.reviews && data.reviews.length > 0) {
+          const actionsDiv = document.getElementById(`actions-${requestId}`);
+          if (actionsDiv) {
+            const reviewsHtml = `
+              <div style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 8px;"><strong>Revisiones:</strong></div>
+                ${data.reviews.map(review => {
+                  const icon = review.decision === 'approved' ? '✅' : '❌';
+                  const date = new Date(review.reviewed_at).toLocaleString('es-ES');
+                  return `<div style="font-size: 0.85em; color: #888; margin: 3px 0;">${icon} ${review.admin_username} - ${date}</div>`;
+                }).join('')}
+              </div>
+            `;
+            actionsDiv.insertAdjacentHTML('beforebegin', reviewsHtml);
+          }
+        }
+      } catch (error) {
+        console.error('Error al cargar revisiones:', error);
+      }
+    }
+
+    // Review Request (approve/reject)
+    async function reviewRequest(id, decision) {
+      if (!confirm(`¿${decision === 'approved' ? 'Aprobar' : 'Rechazar'} esta solicitud?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/requests/${id}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showMessage('adminMessage', '✅ ' + data.message, 'success');
+          loadRequests('pending');
+        } else {
+          showMessage('adminMessage', '❌ ' + data.error, 'error');
+        }
+      } catch (error) {
+        showMessage('adminMessage', '❌ Error de conexión', 'error');
+      }
+    }
+
+    // Delete Request
+    async function deleteRequest(id) {
+      if (!confirm('¿Eliminar esta solicitud?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/requests/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+
+        if (response.ok) {
+          showMessage('adminMessage', '✅ Solicitud eliminada', 'success');
+          loadRequests('pending');
+        } else {
+          showMessage('adminMessage', '❌ ' + data.error, 'error');
+        }
+      } catch (error) {
+        showMessage('adminMessage', '❌ Error de conexión', 'error');
       }
     }
 

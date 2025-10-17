@@ -158,6 +158,177 @@
     .loading {
       animation: pulse 1.5s ease-in-out infinite;
     }
+
+    /* Request access button */
+    .request-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: clamp(12px, 3vw, 15px) clamp(25px, 5vw, 35px);
+      border-radius: 25px;
+      font-size: clamp(0.95em, 3vw, 1.05em);
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .request-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      padding: clamp(25px, 5vw, 35px);
+      max-width: 450px;
+      width: 100%;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal h2 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: clamp(1.3em, 4vw, 1.6em);
+    }
+
+    .modal p {
+      color: #666;
+      margin-bottom: 20px;
+      font-size: clamp(0.9em, 3vw, 0.95em);
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 600;
+      font-size: clamp(0.9em, 3vw, 0.95em);
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: clamp(10px, 2vw, 12px);
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: clamp(0.9em, 3vw, 1em);
+      font-family: inherit;
+      transition: border-color 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-group small {
+      color: #999;
+      font-size: clamp(0.8em, 2.5vw, 0.85em);
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 25px;
+      flex-direction: column;
+    }
+
+    @media (min-width: 481px) {
+      .modal-buttons {
+        flex-direction: row;
+      }
+    }
+
+    .modal-buttons button {
+      flex: 1;
+      padding: clamp(10px, 2vw, 12px);
+      border: none;
+      border-radius: 10px;
+      font-size: clamp(0.9em, 3vw, 1em);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+    }
+
+    .message {
+      padding: 12px 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      animation: slideIn 0.3s ease;
+    }
+
+    .message.success {
+      background: #e5ffe5;
+      color: #00b894;
+      border-left: 4px solid #00b894;
+    }
+
+    .message.error {
+      background: #ffe5e5;
+      color: #d63031;
+      border-left: 4px solid #d63031;
+    }
   </style>
 </head>
 <body>
@@ -171,8 +342,85 @@
 
     <div class="last-update" id="lastUpdate"></div>
 
+    <button class="request-btn" onclick="showRequestModal()">
+      📝 Solicitar Acceso
+    </button>
+
     <div class="admin-link">
       <p>¿Eres administrador? <a href="/admin">Acceder al panel</a></p>
+    </div>
+  </div>
+
+  <!-- Modal de solicitud -->
+  <div id="requestModal" class="modal">
+    <div class="modal-content">
+      <h2>Solicitar Acceso</h2>
+      <p>Completa el formulario para solicitar acceso a la sala. Un administrador revisará tu solicitud.</p>
+      
+      <div id="modalMessage"></div>
+      
+      <form id="requestForm" onsubmit="submitRequest(event)">
+        <div class="form-group">
+          <label for="userName">Nombre completo *</label>
+          <input type="text" id="userName" required minlength="3" placeholder="Tu nombre completo">
+        </div>
+        
+        <div class="form-group">
+          <label for="requestDate">Fecha solicitada *</label>
+          <input type="date" id="requestDate" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="requestTime">Hora solicitada *</label>
+          <input type="time" id="requestTime" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="userEmail">Email (opcional)</label>
+          <input type="email" id="userEmail" placeholder="tu@email.com">
+          <small>Para que podamos contactarte si es necesario</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="userReason">Motivo (opcional)</label>
+          <textarea id="userReason" placeholder="¿Por qué necesitas acceso?"></textarea>
+        </div>
+        
+        <div class="modal-buttons">
+          <button type="button" class="btn-secondary" onclick="hideRequestModal()">Cancelar</button>
+          <button type="submit" class="btn-primary">Enviar Solicitud</button>
+        </div>
+      </form>
+
+      <div class="divider" style="margin: 25px 0; border-top: 1px solid #eee;"></div>
+
+      <div style="text-align: center;">
+        <p style="color: #666; margin-bottom: 10px; font-size: 0.9em;">¿Ya enviaste una solicitud?</p>
+        <button type="button" class="btn-secondary" style="width: 100%;" onclick="showCheckStatusModal()">
+          🔍 Consultar Estado
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para consultar estado -->
+  <div id="checkStatusModal" class="modal">
+    <div class="modal-content">
+      <h2>Consultar Estado de Solicitud</h2>
+      <p>Ingresa el número de tu solicitud</p>
+      
+      <div class="form-group">
+        <label for="requestId">Número de Solicitud</label>
+        <input type="number" id="requestId" placeholder="Ej: 123" min="1">
+        <small>Lo recibiste cuando enviaste la solicitud</small>
+      </div>
+      
+      <div id="statusResult" style="margin-top: 20px;"></div>
+      
+      <div class="modal-buttons">
+        <button type="button" class="btn-secondary" onclick="hideCheckStatusModal()">Cerrar</button>
+        <button type="button" class="btn-primary" onclick="checkRequestStatus()">Consultar</button>
+      </div>
     </div>
   </div>
 
@@ -239,6 +487,143 @@
       const timeString = now.toLocaleTimeString('es-ES');
       document.getElementById('lastUpdate').textContent = `Última actualización: ${timeString}`;
     }
+
+    // Modal functions
+    function showRequestModal() {
+      document.getElementById('requestModal').classList.add('active');
+      document.getElementById('requestForm').reset();
+      document.getElementById('modalMessage').innerHTML = '';
+      
+      // Set minimum date to today
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('requestDate').setAttribute('min', today);
+    }
+
+    function hideRequestModal() {
+      document.getElementById('requestModal').classList.remove('active');
+    }
+
+    function showCheckStatusModal() {
+      hideRequestModal();
+      document.getElementById('checkStatusModal').classList.add('active');
+      document.getElementById('statusResult').innerHTML = '';
+      document.getElementById('requestId').value = '';
+    }
+
+    function hideCheckStatusModal() {
+      document.getElementById('checkStatusModal').classList.remove('active');
+    }
+
+    // Check request status
+    async function checkRequestStatus() {
+      const requestId = document.getElementById('requestId').value;
+      const resultDiv = document.getElementById('statusResult');
+
+      if (!requestId) {
+        resultDiv.innerHTML = '<p style="color: #e74c3c;">Por favor ingresa un número de solicitud</p>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/requests/${requestId}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          resultDiv.innerHTML = `<p style="color: #e74c3c;">${data.error || 'Solicitud no encontrada'}</p>`;
+          return;
+        }
+
+        const statusColor = data.finalStatus === 'approved' ? '#27ae60' : 
+                           data.finalStatus === 'rejected' ? '#e74c3c' : '#f39c12';
+        const statusText = data.finalStatus === 'approved' ? '✅ APROBADA' : 
+                          data.finalStatus === 'rejected' ? '❌ RECHAZADA' : '⏳ PENDIENTE';
+
+        let html = `
+          <div style="background: ${statusColor}15; border: 2px solid ${statusColor}; border-radius: 10px; padding: 15px; margin-top: 15px;">
+            <h3 style="color: ${statusColor}; margin: 0 0 10px 0;">${statusText}</h3>
+            <p><strong>Nombre:</strong> ${data.name}</p>
+            <p><strong>Fecha solicitada:</strong> ${data.requested_date}</p>
+            <p><strong>Hora solicitada:</strong> ${data.requested_time}</p>
+            ${data.reason ? `<p><strong>Motivo:</strong> ${data.reason}</p>` : ''}
+            <p style="margin-top: 15px; padding-top: 10px; border-top: 1px solid ${statusColor}40;">
+              <strong>Aprobaciones:</strong> ${data.approvals} de ${data.totalAdmins}<br>
+              <strong>Rechazos:</strong> ${data.rejections} de ${data.totalAdmins}
+            </p>
+        `;
+
+        if (data.reviews && data.reviews.length > 0) {
+          html += '<p style="margin-top: 10px;"><strong>Revisiones:</strong></p><ul style="text-align: left; margin: 5px 0;">';
+          data.reviews.forEach(review => {
+            const icon = review.decision === 'approved' ? '✅' : '❌';
+            const date = new Date(review.reviewed_at).toLocaleString('es-ES');
+            html += `<li>${icon} ${review.admin_username} - ${date}</li>`;
+          });
+          html += '</ul>';
+        }
+
+        html += '</div>';
+        resultDiv.innerHTML = html;
+      } catch (error) {
+        console.error('Error:', error);
+        resultDiv.innerHTML = '<p style="color: #e74c3c;">Error al consultar la solicitud</p>';
+      }
+    }
+
+    // Submit request
+    async function submitRequest(event) {
+      event.preventDefault();
+      
+      const name = document.getElementById('userName').value;
+      const email = document.getElementById('userEmail').value;
+      const reason = document.getElementById('userReason').value;
+      const requestedDate = document.getElementById('requestDate').value;
+      const requestedTime = document.getElementById('requestTime').value;
+
+      try {
+        const response = await fetch('/api/requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, reason, requested_date: requestedDate, requested_time: requestedTime })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showModalMessage(
+            `✅ ${data.message}<br><br>` +
+            `<strong>Tu número de solicitud es: ${data.requestId}</strong><br>` +
+            `<small>Guárdalo para consultar el estado más tarde</small>`, 
+            'success'
+          );
+          setTimeout(() => {
+            hideRequestModal();
+          }, 5000);
+        } else {
+          showModalMessage('❌ ' + data.error, 'error');
+        }
+      } catch (error) {
+        showModalMessage('❌ Error de conexión. Intenta de nuevo.', 'error');
+      }
+    }
+
+    function showModalMessage(message, type) {
+      const container = document.getElementById('modalMessage');
+      container.innerHTML = `<div class="message ${type}">${message}</div>`;
+      setTimeout(() => container.innerHTML = '', 5000);
+    }
+
+    // Close modal on outside click
+    document.getElementById('requestModal').addEventListener('click', (e) => {
+      if (e.target.id === 'requestModal') {
+        hideRequestModal();
+      }
+    });
+
+    document.getElementById('checkStatusModal').addEventListener('click', (e) => {
+      if (e.target.id === 'checkStatusModal') {
+        hideCheckStatusModal();
+      }
+    });
 
     // Actualizar cada 5 segundos
     fetchStatus();
